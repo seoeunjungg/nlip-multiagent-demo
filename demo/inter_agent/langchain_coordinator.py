@@ -5,10 +5,7 @@ This agent receives client requests and delegates tool execution to the LlamaInd
 agent via NLIP protocol. It demonstrates how different AI frameworks can collaborate.
 """
 
-import asyncio
 import os
-import re
-from typing import Literal
 from typing import Any
 from dotenv import load_dotenv
 
@@ -30,7 +27,7 @@ from ..shared.nlip_client import NLIPClient
 load_dotenv()
 
 # Configuration
-LLAMAINDEX_SERVER_URL = os.getenv("LLAMAINDEX_SERVER_URL", "http://localhost:8014")
+LLAMAINDEX_NEWS_URL = os.getenv("LLAMAINDEX_SERVER_URL", "http://localhost:8014")
 LLAMAINDEX_STOCK_URL  = os.getenv("LLAMAINDEX_STOCK_URL",  "http://localhost:8013")
 
 class StreamingCallbackHandler(BaseCallbackHandler):
@@ -50,7 +47,7 @@ async def get_tech_news(topic: str, days: int = 1) -> str:
     """Get recent tech news about a topic by delegating to the LlamaIndex worker via NLIP."""
     print(f"\n🔄 [LangChain] Delegating tech news query for '{topic}' (days={days}) to LlamaIndex worker...")
     
-    client = NLIPClient(LLAMAINDEX_SERVER_URL)
+    client = NLIPClient(LLAMAINDEX_NEWS_URL)
     query = f"Get recent tech news about '{topic}' in the last {days} days."
     
     response = await client.send_message(query)
@@ -104,7 +101,7 @@ class LangChainSession(server.NLIP_Session):
             prompt = ChatPromptTemplate.from_messages([
                 ("system",
                 "You are a helpful assistant that answers questions about technology companies. "
-                "Use tools to fetch up-to-date stock prices or recent news when needed."
+                "Use tools to fetch up-to-date stock prices or recent news when needed. "
                 "Answer directly when the question can be answered without external data."),
                 ("human", "{input}"),
                 MessagesPlaceholder(variable_name="agent_scratchpad"),
@@ -116,7 +113,7 @@ class LangChainSession(server.NLIP_Session):
             
             print("✅ LangChain components initialized successfully.")
             print(f"🛠️ Available delegating tools: {[tool.name for tool in self.tools]}")
-            print(f"🌐 LlamaIndex worker server URL: {LLAMAINDEX_SERVER_URL}")
+            print(f"🌐 LlamaIndex worker server URL: {LLAMAINDEX_NEWS_URL}")
             
         except Exception as e:
             print(f"❌ Error initializing LangChain components: {e}")

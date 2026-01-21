@@ -5,9 +5,7 @@ This agent executes the actual tech news tool implementations and serves
 requests delegated from the LangChain agent via NLIP protocol.
 """
 
-import asyncio
 import os
-from typing import Any, Dict, List, Optional
 from dotenv import load_dotenv
 
 from llama_index.core.tools import FunctionTool
@@ -57,12 +55,6 @@ class LlamaIndexSession(server.NLIP_Session):
         try:
             print("🔧 Initializing LlamaIndex components...")
 
-            api_key = os.getenv("OPENAI_API_KEY")
-            if not api_key:
-                raise ValueError("OPENAI_API_KEY env var is required")
-            
-            print(f"🔑 Using OpenAI API key: {api_key[:10]}...")
-            
             self.llm = OpenAI(
                 model="gpt-4o-mini",
                 api_key=os.getenv("OPENAI_API_KEY"),
@@ -131,10 +123,6 @@ class LlamaIndexSession(server.NLIP_Session):
         except Exception as e:
             logger.error(f"Exception in LlamaIndex execution: {e}")
             return NLIP_Factory.create_text(f"❌ Error processing delegated request: {str(e)}")
-
-    async def stop(self):
-        """Clean up resources."""
-        print("🛑 Stopping LlamaIndex session")
 
     async def stop(self):
         """Clean up resources."""
