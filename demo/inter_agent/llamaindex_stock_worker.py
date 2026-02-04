@@ -33,10 +33,30 @@ class LlamaIndexStockSession(server.NLIP_Session):
         print("✅ Stock worker initialized.")
 
     async def execute(self, msg: nlip.NLIP_Message) -> nlip.NLIP_Message:
-        text = msg.extract_text()
+        d = msg.model_dump() if hasattr(msg, "model_dump") else {}
+        print("[STOCK] RAW NLIP:", d, flush=True)
+        print("[STOCK] format/subformat:", d.get("format"), d.get("subformat"), flush=True)
+        print("[STOCK] content type:", type(d.get("content")), flush=True)
+        fmt = (d.get("format") or d.get("Format") or "").lower()
+        subfmt = (d.get("subformat") or d.get("Subformat") or "").lower()
+        content = d.get("content") if "content" in d else d.get("Content")
+
         try:
+            if fmt == "structured" and subfmt == "json" and isinstance(content, dict):
+                tool = content.get("tool")
+                args = content.get("args") or {}
+
+                if tool == "get_stock_quote":
+                    q = args.get("query", "")
+                    out = await get_stock_quote(q)
+                    return NLIP_Factory.create_text(out)
+
+                return NLIP_Factory.create_text(f"❌ Unknown tool '{tool}' in structured NLIP request.")
+
+            text = msg.extract_text()
             out = await get_stock_quote(text)
             return NLIP_Factory.create_text(out)
+
         except Exception as e:
             return NLIP_Factory.create_text(f"❌ Error: {str(e)}")
 

@@ -40,17 +40,16 @@ class StreamingCallbackHandler(BaseCallbackHandler):
 async def get_stock_quote(query: str) -> str:
     """Get stock quote/price by delegating to the stock worker via NLIP."""
     client = NLIPClient(LLAMAINDEX_STOCK_URL)
-    return await client.send_message(query.strip())
+    return await client.send_tool_call("get_stock_quote", {"query": query.strip()})
 
 @tool
 async def get_tech_news(topic: str, days: int = 1) -> str:
-    """Get recent tech news about a topic by delegating to the LlamaIndex worker via NLIP."""
+    """Get recent tech news about a topic by delegating via NLIP."""
     print(f"\n🔄 [LangChain] Delegating tech news query for '{topic}' (days={days}) to LlamaIndex worker...")
-    
+
     client = NLIPClient(LLAMAINDEX_NEWS_URL)
-    query = f"Get recent tech news about '{topic}' in the last {days} days."
-    
-    response = await client.send_message(query)
+    response = await client.send_tool_call("get_tech_news_brief", {"topic": topic, "days": days})
+
     print(f"✅ [LangChain] Tech news response received from LlamaIndex worker\n")
     return response
 

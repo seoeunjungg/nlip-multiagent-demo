@@ -13,15 +13,12 @@ from llama_index.core.agent.workflow import FunctionAgent
 from llama_index.core.workflow import Context
 from llama_index.llms.openai import OpenAI
 
-# Import NLIP components
 from nlip_sdk.nlip import NLIP_Factory
 from nlip_sdk import nlip
 from nlip_server import server
 
-# Import shared utilities
 from ..shared.news_tools import get_tech_news_brief
 
-# Load environment variables
 load_dotenv()
 
 
@@ -62,7 +59,6 @@ class LlamaIndexSession(server.NLIP_Session):
                 max_tokens=512,
             )
             
-            # Create FunctionTool objects from our async functions
             self.tools = [
                 FunctionTool.from_defaults(
                     fn=get_tech_news_brief,
@@ -74,7 +70,6 @@ class LlamaIndexSession(server.NLIP_Session):
                 ),
             ]
             
-            # Create LlamaIndex FunctionAgent
             self.agent = FunctionAgent(
                 tools=self.tools,
                 llm=self.llm,
@@ -88,8 +83,6 @@ class LlamaIndexSession(server.NLIP_Session):
                 )
             )
 
-            
-            # Initialize context for maintaining conversation state
             self.context = Context(self.agent)
             
             print("✅ LlamaIndex components initialized successfully.")
@@ -100,29 +93,45 @@ class LlamaIndexSession(server.NLIP_Session):
             raise
 
     async def execute(self, msg: nlip.NLIP_Message) -> nlip.NLIP_Message:
-        """Execute delegated query using LlamaIndex agent with real tools."""
         logger = self.get_logger()
-        text = msg.extract_text()
-        
+
+        d = msg.model_dump() if hasattr(msg, "model_dump") else {}
+        print("[NEWS] RAW NLIP:", d, flush=True)
+        print("[NEWS] format/subformat:", d.get("format"), d.get("subformat"), flush=True)
+        print("[NEWS] content type:", type(d.get("content")), flush=True)
+        fmt = (d.get("format") or d.get("Format") or "").lower()
+        subfmt = (d.get("subformat") or d.get("Subformat") or "").lower()
+        content = d.get("content") if "content" in d else d.get("Content")
+
         try:
+            if fmt == "structured" and subfmt == "json" and isinstance(content, dict):
+                tool = content.get("tool")
+                args = content.get("args") or {}
+
+                if tool == "get_tech_news_brief":
+                    topic = args.get("topic", "")
+                    days = int(args.get("days", 1))
+                    out = await get_tech_news_brief(topic=topic, days=days)
+                    return NLIP_Factory.create_text(out)
+
+                return NLIP_Factory.create_text(f"❌ Unknown tool '{tool}' in structured NLIP request.")
+
+            text = msg.extract_text()
             print(f"\n🔧 [LlamaIndex] Processing delegated query: {text}")
             print("=" * 80)
-            
-            # Reset context for fresh conversation
+
             self.context = Context(self.agent)
-            
-            # Use the agent to process the query
             response = await self.agent.run(text, ctx=self.context)
             response_text = str(response)
-            
+
             print("=" * 80)
             print(f"✅ [LlamaIndex] Completed processing, returning result to coordinator\n")
             logger.info(f"LlamaIndex Response: {response_text}")
             return NLIP_Factory.create_text(response_text)
-            
+
         except Exception as e:
             logger.error(f"Exception in LlamaIndex execution: {e}")
-            return NLIP_Factory.create_text(f"❌ Error processing delegated request: {str(e)}")
+            return NLIP_Factory.create_text(f"❌ Error processing request: {str(e)}")
 
     async def stop(self):
         """Clean up resources."""
